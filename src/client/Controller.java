@@ -26,6 +26,8 @@ public class Controller extends Observable {
     Socket socket;
     DataOutputStream out;
     DataInputStream in;
+    DatagramSocket socketUdp;
+    byte[] dataUDP = new byte[4];
     
     messageReader messages;
     Thread thread;
@@ -48,6 +50,7 @@ public class Controller extends Observable {
             socket = new Socket(hostName, portNumber);
             out = new DataOutputStream(socket.getOutputStream());
             in = new DataInputStream(socket.getInputStream());
+            socketUdp = new DatagramSocket();
             
         } catch (UnknownHostException e) {
             System.err.println("Don't know about host " + hostName);
@@ -66,6 +69,7 @@ public class Controller extends Observable {
 		out.close();
 		in.close();
 		socket.close();
+		socketUdp.close();
 	}
 	
 	// messageReader is a thread that is responsible for interpreting 
@@ -73,46 +77,55 @@ public class Controller extends Observable {
 	public class messageReader implements Runnable {
 		DataInputStream in;
 		GameState state;
+		DatagramSocket socketUdp;
+		DatagramPacket udpIn;
 		// runThread is used to determine if the thread should stop or not.
 		volatile boolean runThread;
 		
-		public messageReader(DataInputStream in, GameState state) {
+		public messageReader(DataInputStream in, GameState state, DatagramSocket socketUdp) {
 			this.in = in;
 			this.state = state;
+			this.socketUdp = socketUdp;
+			this.udpIn = new DatagramPacket(dataUDP, dataUDP.length);
 		}
 		
 		public void messageProcessor(byte[] data) {
-			
+	        byte[] udpData = new byte[4];
+            udpData = udpIn.getData();
 			if(data[0] == Messages.JOIN.ordinal()) {
-				
-				int newID = data[1];
-				int newX = data[2];
-				int newY = data[3];
-				// Add the new players data to gameState.
-				this.state.newPlayer(newID, new Point(newX, newY));
+				if(udpData[0] == Messages.JOIN.ordinal()) {
+					int newID = udpData[1];
+					int newX = udpData[2];
+					int newY = udpData[3];
+					// Add the new players data to gameState.
+					this.state.newPlayer(newID, new Point(newX, newY));
+				}
 		        
 			} else if(data[0] == Messages.PLAYER_MOVED.ordinal()) {
-				int moveID = (int) data[1];
-				int moveX = (int) data[2];
-				int moveY = (int) data[3];
-				// First check if the player exist already
-				if(checkIfExist(moveID)) {
-					// The player exist so we only need to change it's location.
-					this.state.movePlayer(moveID, moveX, moveY);
-				} else {
-					// The player did not exist so we add the player with recieved location.
-					this.state.newPlayer(moveID, new Point(moveX, moveY));
+				if(udpData[0] == Messages.PLAYER_MOVED.ordinal()) {
+					int moveID = udpData[1];
+					int moveX = udpData[2];
+					int moveY = udpData[3];
+					// First check if the player exist already
+					if(checkIfExist(moveID)) {
+						// The player exist so we only need to change it's location.
+						this.state.movePlayer(moveID, moveX, moveY);
+					} else {
+						// The player did not exist so we add the player with recieved location.
+						this.state.newPlayer(moveID, new Point(moveX, moveY));
+					}
 				}
 			} else if(data[0] == Messages.PLAYER_KILLED.ordinal()) {
-				//System.out.println("Killed player ID: " + (int) data[1]);
-				
-				// First check if the player shot exist and change the gamestate
-				// so that the player is dead and cannot move or shoot.
-				int killID = (int) data[1];
-				if(checkIfExist(killID)) {
-					this.state.killPlayer(killID);
+				if(udpData[0] == Messages.PLAYER_KILLED.ordinal()) {
+					//System.out.println("Killed player ID: " + (int) data[1]);
+					
+					// First check if the player shot exist and change the gamestate
+					// so that the player is dead and cannot move or shoot.
+					int killID = udpData[1];
+					if(checkIfExist(killID)) {
+						this.state.killPlayer(killID);
+					}
 				}
-				this.state.killPlayer(killID);
 			} else if(data[0] == Messages.RESET.ordinal()) {
 				int resetID = (int) data[1];
 				int resetX = (int) data[2];
@@ -189,7 +202,7 @@ public class Controller extends Observable {
 		gameState.setPlayerID(playerID);
 		
 		// Start the thread messageReader that will process all the data from server.
-		messages = new messageReader(this.in, this.gameState);
+		messages = new messageReader(this.in, this.gameState, this.socketUdp);
 		thread = new Thread(messages);
 		thread.start();
 	}

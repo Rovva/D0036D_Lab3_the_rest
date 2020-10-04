@@ -49,6 +49,12 @@ public class Protocol {
 		}
 	}
 	
+	private void sendToAllUDP(byte[] data) {
+		for(int i = 0; i < threads.size(); i++) {
+			
+		}
+	}
+	
 	// This method adds a new player returns a valid ID and a random location
 	// that the player will start at.
 	private byte[] newPlayer() {

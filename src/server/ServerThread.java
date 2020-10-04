@@ -1,6 +1,9 @@
 package server;
 
 import java.net.*;
+
+import shared.Messages;
+
 import java.io.*;
 
  
@@ -8,7 +11,7 @@ public class ServerThread extends Thread {
     private Socket socket = null;
     private Protocol proto;
     private DataOutputStream out;
-    private int playerID;
+    private int portUDP = 0;
     
     private boolean runThread;
  
@@ -27,6 +30,12 @@ public class ServerThread extends Thread {
     	}
     }
     
+    public void sendUDPMessage(byte[] data) {
+    	if(runThread) {
+    		
+    	}
+    }
+    
     // This method is invoked when the thread must close.
     public void stopThread() {
     	this.runThread = false;
@@ -40,6 +49,9 @@ public class ServerThread extends Thread {
             	byte[] data = new byte[4];
             	in.read(data);
                 if(data != null) {
+                	if(data[0] == Messages.JOIN.ordinal() && portUDP == 0) {
+                		this.portUDP = data[1];
+                	}
                     proto.processInput(data, this);
                 }
             }
