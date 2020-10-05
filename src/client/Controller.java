@@ -27,6 +27,7 @@ public class Controller extends Observable {
     DataOutputStream out;
     DataInputStream in;
     DatagramSocket socketUdp;
+    DatagramPacket packetUdp;
     byte[] dataUDP = new byte[4];
     
     messageReader messages;
@@ -50,7 +51,7 @@ public class Controller extends Observable {
             socket = new Socket(hostName, portNumber);
             out = new DataOutputStream(socket.getOutputStream());
             in = new DataInputStream(socket.getInputStream());
-            socketUdp = new DatagramSocket();
+            //socketUdp = new DatagramSocket();
             
         } catch (UnknownHostException e) {
             System.err.println("Don't know about host " + hostName);
@@ -190,21 +191,34 @@ public class Controller extends Observable {
 		byte[] data = new byte[4];
 		// Read response and store in the byte array data.
 		in.read(data);
-		System.out.println("Recieved after join: " + data[0] + " " + data[1] + " " + data[2]);
-		// Cast all the data into integer variables.
-		int playerID = data[1];
-		int playerX = data[2];
-		int playerY = data[3];
+		
+		int port = (0xFF & data[3]) << 8 | (0xFF & data[2]) << 0;
+		
+		//this.socketUdp = new DatagramSocket(port);
+		
+		this.packetUdp = new DatagramPacket(data, 4,socket.getInetAddress(), port);
+		
+		System.out.println("Recieved after join: " + port);
+		
+		//socketUdp.receive(this.packetUdp);
+		
+		data = this.packetUdp.getData();
+		if(gameState.getPlayerID() == data[1]) {
+			int playerX = data[2];
+			int playerY = data[3];
+		}
+		
+		System.out.println("Recieved on UDP: " + (int) data[0] + " " + (int) data[1] + " " + (int) data[2] + " " + (int) data[3]);
 		
 		// Add the received ID and location to the gamestate and set own ID to the ID
 		// received from server.
-		gameState.newPlayer(playerID, new Point(playerX, playerY));
-		gameState.setPlayerID(playerID);
+		//gameState.newPlayer(playerID, new Point(playerX, playerY));
+		//gameState.setPlayerID(playerID);
 		
 		// Start the thread messageReader that will process all the data from server.
-		messages = new messageReader(this.in, this.gameState, this.socketUdp);
-		thread = new Thread(messages);
-		thread.start();
+		//messages = new messageReader(this.in, this.gameState, this.socketUdp);
+		//thread = new Thread(messages);
+		//thread.start();
 	}
 	
 	// Method for sending input like move or hit.

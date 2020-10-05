@@ -5,6 +5,7 @@ import shared.Messages;
 
 import java.awt.Point;
 import java.io.IOException;
+import java.net.DatagramSocket;
 import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.Random;
@@ -25,13 +26,14 @@ public class Protocol {
 	
 	private void startServer() {
 		boolean listening = true;
-		try (ServerSocket serverSocket = new ServerSocket(this.portNumber)) { 
+		try (ServerSocket serverSocket = new ServerSocket(this.portNumber)) {
+			DatagramSocket udpSocket = new DatagramSocket();
 			int i = 0;
 			// While listening is true, listen to incoming connections and
 			// start a new ServerThread thread.
             while (listening) {
             	System.out.println("Listening and stuff at port: " + this.portNumber);
-                threads.add(new ServerThread(serverSocket.accept(), this));
+                threads.add(new ServerThread(serverSocket.accept(), udpSocket, this));
                 threads.get(i).start();
                 i++;
             }
@@ -51,7 +53,13 @@ public class Protocol {
 	
 	private void sendToAllUDP(byte[] data) {
 		for(int i = 0; i < threads.size(); i++) {
-			
+			threads.get(i).sendUDPMessage(data);
+		}
+	}
+	
+	private void sendJoin(int id) throws IOException {
+		for(int i = 0; i < threads.size(); i++) {
+			threads.get(i).sendJoinMessage(id);
 		}
 	}
 	
@@ -292,7 +300,9 @@ public class Protocol {
     	} else if(data[0] == Messages.JOIN.ordinal()) {
     		System.out.println("Adding new player...");
     		byte[] newplayer = newPlayer();
-    		sendToAll(newplayer);
+    		sendJoin((int) newplayer[1]);
+    		System.out.println("Position: " + (int) newplayer[2] + " " + (int) newplayer[3]);
+    		sendToAllUDP(newplayer);
     		resetGame();
     	// If the message is PLAYER_INPUT then check the last byte to know if the player
     	// is moving or hitting other players.
